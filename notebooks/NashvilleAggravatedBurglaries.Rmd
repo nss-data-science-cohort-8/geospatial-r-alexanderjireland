@@ -1,0 +1,98 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(sf)
+library(tidyverse)
+```
+
+```{r}
+burglaries <- read.csv("../data/burglaries_2023.csv")
+census <- read.csv("../data/census.csv")
+tracts <- read_sf("../data/DC")
+```
+
+```{r}
+tracts |> 
+  ggplot() +
+  geom_sf()
+```
+
+```{r}
+tracts |> 
+  ggplot() +
+  geom_sf() +
+  geom_point(
+    data = burglaries |> drop_na(latitude),
+    aes(x = longitude, y = latitude),
+    size = 0.1
+    )
+```
+
+```{r}
+burglaries_geo <- st_as_sf(
+  burglaries |> drop_na(latitude, longitude), 
+  coords = c('longitude', 'latitude'),
+  crs = st_crs(tracts)
+)
+```
+
+```{r}
+tracts |> 
+  ggplot() +
+  geom_sf() +
+  geom_sf(data = burglaries_geo, size= 0.1)
+```
+
+```{r}
+burglaries_zips <- st_join(burglaries_geo, tracts, join=st_within, left = FALSE)
+#burglaries_zips
+  
+```
+
+```{r}
+burglaries_zips |> 
+  st_drop_geometry() |> 
+  group_by(NAME) |> 
+  count(name = "num_burglaries") |> 
+  arrange(desc(num_burglaries))
+```
+
+```{r}
+name = 160
+
+tracts |> 
+  filter(NAME == name) |> 
+  ggplot() +
+  geom_sf() +
+  geom_sf(data = burglaries_zips |> filter(NAME == name),
+          aes(color = weapon_description))
+```
+
+```{r}
+tracts |> 
+  ggplot() +
+  geom_sf() +
+  geom_sf(data = burglaries_zips,
+          aes(color = weapon_description))
+```
+
+```{r}
+burglaries_zips <- burglaries_zips |> 
+  mutate(TRACTCE = as.numeric(str_sub(TRACTCE, 2, -1)))
+burg_zips_census <- left_join(census, burglaries_zips, by = c("tract" = "TRACTCE"))
+```
+
+```{r}
+# Exploratory Analysis
+burg_zips_census |> 
+  drop_na(incident_number)|>  
+  group_by(tract) |>
+  count(incident_number) |> 
+  summarize(sum = sum(n)) |> 
+  arrange(desc(sum))
+```
+
