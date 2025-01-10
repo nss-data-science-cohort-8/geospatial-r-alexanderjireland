@@ -88,11 +88,31 @@ burg_zips_census <- left_join(census, burglaries_zips, by = c("tract" = "TRACTCE
 
 ```{r}
 # Exploratory Analysis
-burg_zips_census |> 
-  drop_na(incident_number)|>  
+ndf <- burg_zips_census |> 
+  drop_na(incident_number)|> 
+  filter(population>0)
+ndf <- ndf |> 
   group_by(tract) |>
-  count(incident_number) |> 
-  summarize(sum = sum(n)) |> 
-  arrange(desc(sum))
+  mutate(incident_number = as.character(incident_number)) |> 
+  summarize(incident_sum = n(), population=mean(population), 
+            per_cap = 1000 * incident_sum/population,
+            median_income = mean(median_income))|> 
+  arrange(desc(per_cap))
+ndf
+```
+
+```{r}
+pr_burg_income <- glm('incident_sum ~ median_income',
+ data = ndf,
+ family = "poisson")
+```
+
+```{r}
+summary(pr_burg_income)
+```
+
+```{r}
+median_tract_income = 50000
+exp(3.143 - .00001932*median_tract_income)
 ```
 
